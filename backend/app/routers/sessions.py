@@ -9,7 +9,7 @@ from app.services.session_manager import (
     collection_name_for,
 )
 from app.services.message_store import get_messages
-from app.services.vectorstore import delete_collection
+from app.rag.vectorstore import delete_collection
 
 router = APIRouter()
 

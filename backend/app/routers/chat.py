@@ -4,8 +4,8 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from app.models.schemas import ChatRequest
-from app.services.vectorstore import retrieve
-from app.services.llm import stream_response
+from app.rag.vectorstore import retrieve
+from app.rag.llm import stream_response
 from app.services.session_manager import get_session, collection_name_for
 from app.services.message_store import save_message
 

@@ -1,8 +1,8 @@
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Request
 
 from app.models.schemas import UploadResponse
-from app.services.pdf_processor import process_pdf
-from app.services.vectorstore import add_documents
+from app.rag.pdf_processor import process_pdf
+from app.rag.vectorstore import add_documents
 from app.services.session_manager import (
     get_session_raw,
     set_primary_pdf,
