@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import Sidebar from "./components/Sidebar";
 import ChatPanel from "./components/ChatPanel";
 
@@ -20,6 +21,7 @@ export interface Message {
 }
 
 export default function Home() {
+  const { data: authSession } = useSession();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [chatHistories, setChatHistories] = useState<Record<string, Message[]>>({});
@@ -28,52 +30,80 @@ export default function Home() {
 
   const activeSession = sessions.find((s) => s.id === activeSessionId) ?? null;
 
+  const authHeaders = useCallback(async (): Promise<HeadersInit> => {
+    const res = await fetch("/api/auth/token");
+    if (res.ok) {
+      const { token } = await res.json();
+      if (token) {
+        return { Authorization: `Bearer ${token}` };
+      }
+    }
+    return {};
+  }, []);
+
   const fetchSessions = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/sessions`);
+      const headers = await authHeaders();
+      const res = await fetch(`${API_URL}/sessions`, { headers });
       if (res.ok) {
         const data: Session[] = await res.json();
         setSessions(data);
       }
     } catch {
-      // silently fail on initial load
+      // silently fail
     }
-  }, []);
+  }, [authHeaders]);
 
   useEffect(() => {
-    fetchSessions();
-  }, [fetchSessions]);
-
-  const fetchMessages = useCallback(async (sessionId: string) => {
-    // Skip if we already have messages cached for this session
-    if (chatHistories[sessionId]) return;
-
-    setLoadingMessages(true);
-    try {
-      const res = await fetch(`${API_URL}/sessions/${sessionId}/messages`);
-      if (res.ok) {
-        const data = await res.json();
-        const messages: Message[] = data.map((m: { role: string; content: string }) => ({
-          role: m.role as "user" | "assistant",
-          content: m.content,
-        }));
-        setChatHistories((prev) => ({ ...prev, [sessionId]: messages }));
-      }
-    } catch {
-      // silently fail
-    } finally {
-      setLoadingMessages(false);
+    if (authSession) {
+      fetchSessions();
     }
-  }, [chatHistories]);
+  }, [authSession, fetchSessions]);
 
-  const handleSelectSession = useCallback(async (sessionId: string) => {
-    setActiveSessionId(sessionId);
-    await fetchMessages(sessionId);
-  }, [fetchMessages]);
+  const fetchMessages = useCallback(
+    async (sessionId: string) => {
+      if (chatHistories[sessionId]) return;
+      setLoadingMessages(true);
+      try {
+        const headers = await authHeaders();
+        const res = await fetch(
+          `${API_URL}/sessions/${sessionId}/messages`,
+          { headers }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          const messages: Message[] = data.map(
+            (m: { role: string; content: string }) => ({
+              role: m.role as "user" | "assistant",
+              content: m.content,
+            })
+          );
+          setChatHistories((prev) => ({ ...prev, [sessionId]: messages }));
+        }
+      } catch {
+        // silently fail
+      } finally {
+        setLoadingMessages(false);
+      }
+    },
+    [chatHistories, authHeaders]
+  );
+
+  const handleSelectSession = useCallback(
+    async (sessionId: string) => {
+      setActiveSessionId(sessionId);
+      await fetchMessages(sessionId);
+    },
+    [fetchMessages]
+  );
 
   const handleNewChat = async (file: File) => {
     try {
-      const sessionRes = await fetch(`${API_URL}/sessions`, { method: "POST" });
+      const headers = await authHeaders();
+      const sessionRes = await fetch(`${API_URL}/sessions`, {
+        method: "POST",
+        headers,
+      });
       if (!sessionRes.ok) throw new Error("Failed to create session.");
       const session: Session = await sessionRes.json();
 
@@ -83,6 +113,7 @@ export default function Home() {
 
       const uploadRes = await fetch(`${API_URL}/upload`, {
         method: "POST",
+        headers,
         body: formData,
       });
 
@@ -101,7 +132,11 @@ export default function Home() {
 
   const handleDeleteSession = async (sessionId: string) => {
     try {
-      await fetch(`${API_URL}/sessions/${sessionId}`, { method: "DELETE" });
+      const headers = await authHeaders();
+      await fetch(`${API_URL}/sessions/${sessionId}`, {
+        method: "DELETE",
+        headers,
+      });
       setSessions((prev) => prev.filter((s) => s.id !== sessionId));
       setChatHistories((prev) => {
         const next = { ...prev };
@@ -119,12 +154,14 @@ export default function Home() {
   const handleAttachPdf = async (file: File) => {
     if (!activeSessionId) return;
     try {
+      const headers = await authHeaders();
       const formData = new FormData();
       formData.append("file", file);
       formData.append("session_id", activeSessionId);
 
       const res = await fetch(`${API_URL}/upload`, {
         method: "POST",
+        headers,
         body: formData,
       });
 
@@ -157,6 +194,15 @@ export default function Home() {
         onSelectSession={handleSelectSession}
         onNewChat={handleNewChat}
         onDeleteSession={handleDeleteSession}
+        user={
+          authSession?.user
+            ? {
+                name: authSession.user.name || "",
+                email: authSession.user.email || "",
+                image: authSession.user.image || null,
+              }
+            : null
+        }
       />
       <main className="flex flex-1 flex-col min-h-0 min-w-0 bg-[var(--bg-page)]">
         <ChatPanel
@@ -170,6 +216,7 @@ export default function Home() {
           onToggleSidebar={() => setSidebarOpen((v) => !v)}
           sidebarOpen={sidebarOpen}
           loadingMessages={loadingMessages}
+          authHeaders={authHeaders}
         />
       </main>
     </div>

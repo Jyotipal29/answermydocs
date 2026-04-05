@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Request
 
 from app.models.schemas import UploadResponse
 from app.services.pdf_processor import process_pdf
@@ -15,10 +15,12 @@ router = APIRouter()
 
 @router.post("/upload", response_model=UploadResponse)
 async def upload_pdf(
+    request: Request,
     file: UploadFile = File(...),
     session_id: str = Form(...),
 ):
-    session = await get_session_raw(session_id)
+    user_id = request.state.user_id
+    session = await get_session_raw(session_id, user_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found.")
 

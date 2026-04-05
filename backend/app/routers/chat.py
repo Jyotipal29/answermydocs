@@ -1,6 +1,6 @@
 from collections.abc import AsyncIterator
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from app.models.schemas import ChatRequest
@@ -13,26 +13,25 @@ router = APIRouter()
 
 
 @router.post("/chat")
-async def chat(request: ChatRequest):
-    session = await get_session(request.session_id)
+async def chat(request: Request, chat_request: ChatRequest):
+    user_id = request.state.user_id
+    session = await get_session(chat_request.session_id, user_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found.")
 
-    # Save user message to MongoDB
-    await save_message(request.session_id, "user", request.question)
+    await save_message(chat_request.session_id, user_id, "user", chat_request.question)
 
-    collection = collection_name_for(request.session_id)
-    context_docs = retrieve(collection, request.question)
+    collection = collection_name_for(chat_request.session_id)
+    context_docs = retrieve(collection, chat_request.question)
 
     async def stream_and_save() -> AsyncIterator[str]:
         accumulated = ""
         async for chunk in stream_response(
-            request.question, context_docs, request.chat_history
+            chat_request.question, context_docs, chat_request.chat_history
         ):
             accumulated += chunk
             yield chunk
-        # Save full assistant response after stream completes
-        await save_message(request.session_id, "assistant", accumulated)
+        await save_message(chat_request.session_id, user_id, "assistant", accumulated)
 
     return StreamingResponse(
         stream_and_save(),

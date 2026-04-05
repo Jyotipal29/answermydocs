@@ -9,12 +9,12 @@ def collection_name_for(session_id: str) -> str:
     return f"session_{session_id}"
 
 
-async def create_session() -> dict:
+async def create_session(user_id: str) -> dict:
     db = get_database()
     session_id = uuid.uuid4().hex[:12]
     session = {
         "_id": session_id,
-        "user_id": None,
+        "user_id": user_id,
         "name": "",
         "filename": "",
         "pdfs": [],
@@ -24,22 +24,22 @@ async def create_session() -> dict:
     return _to_response(session)
 
 
-async def get_session(session_id: str) -> dict | None:
+async def get_session(session_id: str, user_id: str) -> dict | None:
     db = get_database()
-    doc = await db.sessions.find_one({"_id": session_id})
+    doc = await db.sessions.find_one({"_id": session_id, "user_id": user_id})
     if doc:
         return _to_response(doc)
     return None
 
 
-async def get_session_raw(session_id: str) -> dict | None:
+async def get_session_raw(session_id: str, user_id: str) -> dict | None:
     db = get_database()
-    return await db.sessions.find_one({"_id": session_id})
+    return await db.sessions.find_one({"_id": session_id, "user_id": user_id})
 
 
-async def list_sessions() -> list[dict]:
+async def list_sessions(user_id: str) -> list[dict]:
     db = get_database()
-    cursor = db.sessions.find().sort("created_at", -1)
+    cursor = db.sessions.find({"user_id": user_id}).sort("created_at", -1)
     sessions = []
     async for doc in cursor:
         sessions.append(_to_response(doc))
@@ -68,10 +68,9 @@ async def add_supporting_pdf(session_id: str, filename: str):
     )
 
 
-async def delete_session(session_id: str) -> bool:
+async def delete_session(session_id: str, user_id: str) -> bool:
     db = get_database()
-    result = await db.sessions.delete_one({"_id": session_id})
-    # Also delete all messages for this session
+    result = await db.sessions.delete_one({"_id": session_id, "user_id": user_id})
     await db.messages.delete_many({"session_id": session_id})
     return result.deleted_count > 0
 

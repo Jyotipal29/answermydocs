@@ -15,6 +15,7 @@ interface ChatPanelProps {
   onToggleSidebar: () => void;
   sidebarOpen: boolean;
   loadingMessages: boolean;
+  authHeaders: () => Promise<HeadersInit>;
 }
 
 export default function ChatPanel({
@@ -26,6 +27,7 @@ export default function ChatPanel({
   onToggleSidebar,
   sidebarOpen,
   loadingMessages,
+  authHeaders,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -52,9 +54,10 @@ export default function ChatPanel({
     setMessages([...updatedMessages, { role: "assistant", content: "" }]);
 
     try {
+      const headers = await authHeaders();
       const res = await fetch(`${API_URL}/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({
           session_id: session.id,
           question,
@@ -104,7 +107,6 @@ export default function ChatPanel({
   if (!session) {
     return (
       <div className="flex flex-1 flex-col h-full">
-        {/* Toggle button when sidebar closed */}
         {!sidebarOpen && (
           <div className="px-4 pt-4">
             <button
@@ -228,7 +230,6 @@ export default function ChatPanel({
           onSubmit={handleSubmit}
           className="max-w-3xl mx-auto flex items-center gap-2 px-6 py-4"
         >
-          {/* Paperclip button */}
           <button
             type="button"
             onClick={() => attachInputRef.current?.click()}

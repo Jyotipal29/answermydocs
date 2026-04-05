@@ -12,6 +12,8 @@ MONGODB_DB = os.getenv("MONGODB_DB", "answermydocs")
 QDRANT_URL = os.getenv("QDRANT_URL", "")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY", "")
 
+NEXTAUTH_SECRET = os.getenv("NEXTAUTH_SECRET", "")
+
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 200
 

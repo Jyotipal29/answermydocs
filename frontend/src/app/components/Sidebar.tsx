@@ -1,7 +1,14 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { signOut } from "next-auth/react";
 import { Session } from "../page";
+
+interface UserInfo {
+  name: string;
+  email: string;
+  image: string | null;
+}
 
 interface SidebarProps {
   open: boolean;
@@ -11,6 +18,7 @@ interface SidebarProps {
   onSelectSession: (id: string) => void;
   onNewChat: (file: File) => void;
   onDeleteSession: (id: string) => void;
+  user: UserInfo | null;
 }
 
 export default function Sidebar({
@@ -21,6 +29,7 @@ export default function Sidebar({
   onSelectSession,
   onNewChat,
   onDeleteSession,
+  user,
 }: SidebarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -125,14 +134,12 @@ export default function Sidebar({
                     : "text-[var(--text-muted)] hover:bg-[var(--bg-input)] hover:text-[var(--text-primary)]"
                 }`}
               >
-                {/* PDF icon */}
                 <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
                 </svg>
                 <span className="flex-1 truncate">
                   {session.name || "Untitled"}
                 </span>
-                {/* Delete button */}
                 <span
                   role="button"
                   onClick={(e) => {
@@ -149,6 +156,46 @@ export default function Sidebar({
             );
           })}
         </div>
+
+        {/* User info + logout */}
+        {user && (
+          <div className="border-t border-[var(--border-subtle)] px-3 py-3">
+            <div className="flex items-center gap-2.5">
+              {user.image ? (
+                <img
+                  src={user.image}
+                  alt=""
+                  className="w-7 h-7 rounded-full shrink-0"
+                />
+              ) : (
+                <div className="w-7 h-7 rounded-full bg-[var(--bg-input)] border border-[var(--border-subtle)] flex items-center justify-center shrink-0">
+                  <span className="text-xs text-[var(--text-muted)]">
+                    {(user.name || user.email)?.[0]?.toUpperCase() || "?"}
+                  </span>
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-[var(--text-primary)] truncate">
+                  {user.name || user.email}
+                </p>
+                {user.name && (
+                  <p className="text-[10px] text-[var(--text-muted)] truncate">
+                    {user.email}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => signOut({ callbackUrl: "/login" })}
+                title="Sign out"
+                className="shrink-0 p-1.5 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-input)] transition-colors duration-150"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </aside>
   );

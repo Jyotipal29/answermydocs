@@ -12,6 +12,7 @@ RAG-based chat with documents web application with multi-session support.
 | Database    | MongoDB Atlas                  | Session + message persistence, async via motor            |
 | Embeddings  | OpenAI text-embedding-3-small  | Cost-effective, strong performance for retrieval          |
 | LLM         | OpenAI gpt-4o                  | Best balance of quality and speed for chat                |
+| Auth        | NextAuth.js v5 (Auth.js)       | JWT strategy, Google OAuth + email/password credentials   |
 | Frontend    | Next.js (App Router)           | React with server components, file-based routing          |
 | Styling     | Tailwind CSS                   | Utility-first, ships with create-next-app                |
 
@@ -25,12 +26,14 @@ answermydocs/
 │   │   ├── config.py                # Settings and constants
 │   │   ├── db.py                    # Motor async MongoDB client
 │   │   ├── routers/
-│   │   │   ├── sessions.py          # POST/GET/DELETE /sessions, GET messages
-│   │   │   ├── upload.py            # POST /upload (session-aware)
-│   │   │   └── chat.py              # POST /chat (streaming, saves messages)
+│   │   │   ├── sessions.py          # POST/GET/DELETE /sessions, GET messages (user-scoped)
+│   │   │   ├── upload.py            # POST /upload (session-aware, user-scoped)
+│   │   │   └── chat.py              # POST /chat (streaming, saves messages, user-scoped)
+│   │   ├── middleware.py            # Auth middleware (JWT verification, user extraction)
 │   │   ├── services/
-│   │   │   ├── session_manager.py   # Session CRUD (MongoDB)
-│   │   │   ├── message_store.py     # Message save/fetch (MongoDB)
+│   │   │   ├── auth.py              # JWT verification (PyJWT, NEXTAUTH_SECRET)
+│   │   │   ├── session_manager.py   # Session CRUD (MongoDB, user-scoped)
+│   │   │   ├── message_store.py     # Message save/fetch (MongoDB, user-scoped)
 │   │   │   ├── pdf_processor.py     # PDF loading + chunking
 │   │   │   ├── vectorstore.py       # Qdrant Cloud operations (per-session collections)
 │   │   │   └── llm.py               # OpenAI LLM streaming
@@ -38,12 +41,23 @@ answermydocs/
 │   │       └── schemas.py           # Pydantic models
 │   └── requirements.txt
 ├── frontend/
-│   └── src/app/
-│       ├── page.tsx                  # App shell, session state management
-│       └── components/
-│           ├── Sidebar.tsx           # Collapsible sidebar, upload dropzone, session list
-│           ├── ChatPanel.tsx         # Chat interface, paperclip attach, streaming
-│           └── MessageBubble.tsx     # Message display
+│   └── src/
+│       ├── auth.ts                   # NextAuth v5 config (Google + Credentials providers)
+│       ├── proxy.ts                  # Route protection (Next.js 16 proxy/middleware)
+│       └── app/
+│           ├── page.tsx              # App shell, session state management
+│           ├── (auth)/
+│           │   ├── layout.tsx        # Centered auth layout
+│           │   ├── login/page.tsx    # Login page (Google + email/password)
+│           │   └── register/page.tsx # Registration page
+│           ├── api/
+│           │   ├── auth/[...nextauth]/route.ts  # NextAuth route handler
+│           │   └── register/route.ts            # User registration endpoint
+│           └── components/
+│               ├── Sidebar.tsx       # Collapsible sidebar, upload dropzone, session list
+│               ├── ChatPanel.tsx     # Chat interface, paperclip attach, streaming
+│               ├── MessageBubble.tsx # Message display
+│               └── SessionWrapper.tsx # NextAuth SessionProvider wrapper
 ├── .env.example
 └── CONTEXT.md
 ```
@@ -59,6 +73,8 @@ answermydocs/
 - **Chunking strategy**: `RecursiveCharacterTextSplitter` with 1000 char chunks, 200 char overlap. Tunable in `config.py`.
 - **Top-k retrieval**: 5 most similar chunks sent as context to the LLM. Configurable in `config.py`.
 - **Dark UI**: Vercel/shadcn-inspired dark theme with Inter font, border-only styling, no shadows.
+- **Authentication**: NextAuth v5 with Google OAuth and email/password credentials. JWTs use plain HS256 signing (not JWE) so the Python backend can verify them with PyJWT. All API endpoints are user-scoped via auth middleware.
+- **User data isolation**: Backend extracts `user_id` from JWT via middleware. All MongoDB queries filter by `user_id`.
 
 ## API Endpoints
 
@@ -81,11 +97,11 @@ answermydocs/
 - [x] Collapsible sidebar — session list with active highlighting, delete, upload dropzone
 - [x] MongoDB persistence — sessions + messages survive page refresh
 - [x] Dark Vercel/shadcn UI — Inter font, design tokens, responsive layout
+- [x] Authentication — NextAuth v5, Google OAuth + credentials, JWT auth middleware, user-scoped data
 
 ## What Is Pending
 
 - [ ] Source citations in chat responses (show which chunks were used)
-- [ ] Authentication
 - [ ] Deployment configuration (Docker, docker-compose)
 - [ ] Support for non-PDF formats (DOCX, TXT, Markdown)
 - [ ] Configurable chunking and retrieval parameters via UI
