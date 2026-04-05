@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+*.egg
+dist/
+build/
+venv/
+.venv/
+*.whl
+pip-log.txt
+
+# Node
+node_modules/
+.next/
+out/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Backend data (ChromaDB + sessions)
+backend/data/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Next.js
+*.tsbuildinfo
+next-env.d.ts
+
+# Testing
+coverage/
+.pytest_cache/
+htmlcov/
+
+# Misc
+*.log
+.vercel
