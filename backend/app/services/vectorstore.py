@@ -1,17 +1,31 @@
-from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_openai import OpenAIEmbeddings
+from langchain_qdrant import QdrantVectorStore
+from qdrant_client import QdrantClient
+from qdrant_client.models import Distance, VectorParams
 
-from app.config import CHROMA_PERSIST_DIR, EMBEDDING_MODEL, RETRIEVER_TOP_K
+from app.config import QDRANT_URL, QDRANT_API_KEY, EMBEDDING_MODEL, RETRIEVER_TOP_K
 
 _embeddings = OpenAIEmbeddings(model=EMBEDDING_MODEL)
+_VECTOR_SIZE = 1536  # text-embedding-3-small output dimension
+
+_qdrant_client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
 
 
-def _get_store(collection_name: str) -> Chroma:
-    return Chroma(
+def _ensure_collection(collection_name: str):
+    if not _qdrant_client.collection_exists(collection_name):
+        _qdrant_client.create_collection(
+            collection_name=collection_name,
+            vectors_config=VectorParams(size=_VECTOR_SIZE, distance=Distance.COSINE),
+        )
+
+
+def _get_store(collection_name: str) -> QdrantVectorStore:
+    _ensure_collection(collection_name)
+    return QdrantVectorStore(
+        client=_qdrant_client,
         collection_name=collection_name,
-        embedding_function=_embeddings,
-        persist_directory=CHROMA_PERSIST_DIR,
+        embedding=_embeddings,
     )
 
 
@@ -27,9 +41,7 @@ def retrieve(collection_name: str, query: str, top_k: int = RETRIEVER_TOP_K) -> 
 
 
 def delete_collection(collection_name: str):
-    import chromadb
-    client = chromadb.PersistentClient(path=CHROMA_PERSIST_DIR)
     try:
-        client.delete_collection(collection_name)
-    except ValueError:
+        _qdrant_client.delete_collection(collection_name)
+    except Exception:
         pass

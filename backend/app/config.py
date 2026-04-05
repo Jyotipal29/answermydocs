@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -5,9 +6,11 @@ from dotenv import load_dotenv
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 load_dotenv(PROJECT_ROOT / ".env")
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-CHROMA_PERSIST_DIR = str(BASE_DIR / "data" / "chroma")
-SESSIONS_FILE = str(BASE_DIR / "data" / "sessions.json")
+MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
+MONGODB_DB = os.getenv("MONGODB_DB", "answermydocs")
+
+QDRANT_URL = os.getenv("QDRANT_URL", "")
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY", "")
 
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 200

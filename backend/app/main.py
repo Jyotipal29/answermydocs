@@ -1,9 +1,20 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app import db
 from app.routers import sessions, upload, chat
 
-app = FastAPI(title="AnswerMyDocs API")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await db.connect()
+    yield
+    await db.close()
+
+
+app = FastAPI(title="AnswerMyDocs API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

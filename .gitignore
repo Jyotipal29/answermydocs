@@ -24,7 +24,7 @@ yarn-error.log*
 .env.local
 .env.*.local
 
-# Backend data (ChromaDB + sessions)
+# Backend data
 backend/data/
 
 # IDE

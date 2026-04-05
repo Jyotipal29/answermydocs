@@ -4,7 +4,7 @@ from app.models.schemas import UploadResponse
 from app.services.pdf_processor import process_pdf
 from app.services.vectorstore import add_documents
 from app.services.session_manager import (
-    get_session,
+    get_session_raw,
     set_primary_pdf,
     add_supporting_pdf,
     collection_name_for,
@@ -18,7 +18,7 @@ async def upload_pdf(
     file: UploadFile = File(...),
     session_id: str = Form(...),
 ):
-    session = get_session(session_id)
+    session = await get_session_raw(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found.")
 
@@ -33,10 +33,10 @@ async def upload_pdf(
     collection = collection_name_for(session_id)
     num_chunks = add_documents(collection, chunks)
 
-    if not session["primary_pdf"]:
-        set_primary_pdf(session_id, file.filename)
+    if not session.get("filename"):
+        await set_primary_pdf(session_id, file.filename)
     else:
-        add_supporting_pdf(session_id, file.filename)
+        await add_supporting_pdf(session_id, file.filename)
 
     return UploadResponse(
         filename=file.filename,

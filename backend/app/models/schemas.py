@@ -19,3 +19,9 @@ class SessionResponse(BaseModel):
     created_at: str
     primary_pdf: str
     supporting_pdfs: list[str] = []
+
+
+class MessageResponse(BaseModel):
+    role: str
+    content: str
+    created_at: str

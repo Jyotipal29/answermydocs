@@ -24,6 +24,7 @@ export default function Home() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [chatHistories, setChatHistories] = useState<Record<string, Message[]>>({});
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState(false);
 
   const activeSession = sessions.find((s) => s.id === activeSessionId) ?? null;
 
@@ -43,14 +44,39 @@ export default function Home() {
     fetchSessions();
   }, [fetchSessions]);
 
+  const fetchMessages = useCallback(async (sessionId: string) => {
+    // Skip if we already have messages cached for this session
+    if (chatHistories[sessionId]) return;
+
+    setLoadingMessages(true);
+    try {
+      const res = await fetch(`${API_URL}/sessions/${sessionId}/messages`);
+      if (res.ok) {
+        const data = await res.json();
+        const messages: Message[] = data.map((m: { role: string; content: string }) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        }));
+        setChatHistories((prev) => ({ ...prev, [sessionId]: messages }));
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setLoadingMessages(false);
+    }
+  }, [chatHistories]);
+
+  const handleSelectSession = useCallback(async (sessionId: string) => {
+    setActiveSessionId(sessionId);
+    await fetchMessages(sessionId);
+  }, [fetchMessages]);
+
   const handleNewChat = async (file: File) => {
     try {
-      // Create session
       const sessionRes = await fetch(`${API_URL}/sessions`, { method: "POST" });
       if (!sessionRes.ok) throw new Error("Failed to create session.");
       const session: Session = await sessionRes.json();
 
-      // Upload PDF
       const formData = new FormData();
       formData.append("file", file);
       formData.append("session_id", session.id);
@@ -128,7 +154,7 @@ export default function Home() {
         onToggle={() => setSidebarOpen((v) => !v)}
         sessions={sessions}
         activeSessionId={activeSessionId}
-        onSelectSession={setActiveSessionId}
+        onSelectSession={handleSelectSession}
         onNewChat={handleNewChat}
         onDeleteSession={handleDeleteSession}
       />
@@ -143,6 +169,7 @@ export default function Home() {
           onNewChat={handleNewChat}
           onToggleSidebar={() => setSidebarOpen((v) => !v)}
           sidebarOpen={sidebarOpen}
+          loadingMessages={loadingMessages}
         />
       </main>
     </div>
