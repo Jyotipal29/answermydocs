@@ -1,52 +1,53 @@
-# Python
+# ── Python ────────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *.pyo
-*.egg-info/
+*.so
 *.egg
+*.egg-info/
 dist/
 build/
-venv/
-.venv/
-*.whl
-pip-log.txt
+.eggs/
 
-# Node
+# ── Virtual environments ───────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+
+# ── Test / coverage ───────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# ── Environment variables ─────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Scratch / demo files ──────────────────────────────────────────────────────
+backend/test_cache_demo.py
+
+# ── Node / Next.js (frontend — Phase 4) ───────────────────────────────────────
 node_modules/
 .next/
+.turbo/
 out/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 
-# Environment
-.env
-.env.local
-.env.*.local
-
-# Backend data
-backend/data/
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS
+# ── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 
-# Next.js
-*.tsbuildinfo
-next-env.d.ts
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
 
-# Testing
-coverage/
-.pytest_cache/
-htmlcov/
-
-# Misc
-*.log
-.vercel
+# ── Claude Code ───────────────────────────────────────────────────────────────
+.claude/
+docs/plans/
+docs/brainstorms/
