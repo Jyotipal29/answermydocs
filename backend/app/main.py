@@ -36,8 +36,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     from app.rag.indexer import init_indexer
 
+    import os
+    os.environ.setdefault("OPENAI_API_KEY", settings.openai_api_key)
+
     await init_supabase()
-    embeddings = OpenAIEmbeddings(model=settings.embedding_model)
+    embeddings = OpenAIEmbeddings(model=settings.embedding_model, api_key=settings.openai_api_key)
     init_agent(embeddings)
     init_indexer(embeddings)
 

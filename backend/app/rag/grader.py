@@ -24,8 +24,14 @@ Output the number only. No explanation.""",
     ]
 )
 
-_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-_chain = _GRADING_PROMPT | _llm
+_chain = None
+
+
+def _get_chain():
+    global _chain
+    if _chain is None:
+        _chain = _GRADING_PROMPT | ChatOpenAI(model="gpt-4o-mini", temperature=0)
+    return _chain
 
 
 @traceable(name="grade_node")
@@ -44,7 +50,7 @@ async def grade_documents(state: dict) -> dict:
     relevant_docs = []
 
     for doc in documents:
-        result = await _chain.ainvoke(
+        result = await _get_chain().ainvoke(
             {"query": query, "document": doc.page_content}
         )
         try:

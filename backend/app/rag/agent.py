@@ -74,8 +74,16 @@ Rules:
     ]
 )
 
-_generate_llm = ChatOpenAI(model="gpt-4o", temperature=0, streaming=True)
-_generate_chain = _GENERATE_PROMPT | _generate_llm
+_generate_chain = None
+
+
+def _get_generate_chain():
+    global _generate_chain
+    if _generate_chain is None:
+        _generate_chain = _GENERATE_PROMPT | ChatOpenAI(
+            model="gpt-4o", temperature=0, streaming=True
+        )
+    return _generate_chain
 
 
 def _format_context(documents: list[Document]) -> str:
@@ -133,7 +141,7 @@ async def generate_answer(state: RAGState) -> dict:
     # streaming=True on the LLM means graph.astream_events() emits
     # on_chat_model_stream events for each token — consumed by the chat router.
     full_response = ""
-    async for chunk in _generate_chain.astream({"query": query, "context": context}):
+    async for chunk in _get_generate_chain().astream({"query": query, "context": context}):
         full_response += chunk.content
 
     return {

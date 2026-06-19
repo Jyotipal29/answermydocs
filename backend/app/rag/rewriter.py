@@ -24,8 +24,14 @@ Output ONLY the rewritten query. No explanation, no preamble.""",
     ]
 )
 
-_llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.3)
-_chain = _REWRITE_PROMPT | _llm
+_chain = None
+
+
+def _get_chain():
+    global _chain
+    if _chain is None:
+        _chain = _REWRITE_PROMPT | ChatOpenAI(model="gpt-4o-mini", temperature=0.3)
+    return _chain
 
 
 @traceable(name="rewrite_node")
@@ -37,7 +43,7 @@ async def rewrite_query(state: dict) -> dict:
     query: str = state["query"]
     retry_count: int = state.get("retry_count", 0)
 
-    result = await _chain.ainvoke({"query": query})
+    result = await _get_chain().ainvoke({"query": query})
     rewritten = result.content.strip()
 
     return {
