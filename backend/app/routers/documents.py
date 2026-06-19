@@ -11,7 +11,7 @@ from fastapi import (
     UploadFile,
     status,
 )
-from fastapi.responses import StreamingResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
 
 from app.auth import get_current_user
 from app.config import get_settings
@@ -140,6 +140,38 @@ async def get_document(doc_id: str, current_user: UserResponse = Depends(get_cur
         status=DocumentStatus(doc["status"]),
         created_at=doc["created_at"],
     )
+
+
+# ---------------------------------------------------------------------------
+# File download (signed URL redirect)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{doc_id}/file")
+async def get_document_file(
+    doc_id: str, current_user: UserResponse = Depends(get_current_user)
+):
+    client = get_supabase_client()
+    result = await client.table("documents").select("user_id, storage_path, status").eq("id", doc_id).execute()
+
+    if not result.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+
+    doc = result.data[0]
+    if doc["user_id"] != str(current_user.id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
+    if not doc.get("storage_path"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not yet stored")
+
+    signed = await client.storage.from_("documents").create_signed_url(
+        doc["storage_path"], expires_in=300
+    )
+    url = signed.get("signedURL") or signed.get("signedUrl")
+    if not url:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not generate file URL")
+
+    return RedirectResponse(url=url, status_code=302)
 
 
 # ---------------------------------------------------------------------------

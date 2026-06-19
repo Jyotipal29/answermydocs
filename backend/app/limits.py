@@ -1,3 +1,4 @@
+from contextvars import ContextVar
 from datetime import datetime, timezone
 
 from fastapi import Depends, HTTPException, Request, status
@@ -10,19 +11,20 @@ from app.models import UserPlan, UserResponse
 
 settings = get_settings()
 
-# Mount this on the FastAPI app in main.py:
-#   app.state.limiter = limiter
-#   app.add_exception_handler(RateLimitExceeded, _rate_limit_handler)
+# Carries the current request's user plan across the async call chain so that
+# get_rate_limit() can read it without receiving `request` as an argument —
+# SlowAPI calls limit providers with zero arguments.
+_current_plan: ContextVar[str] = ContextVar("current_plan", default="free")
+
 limiter = Limiter(key_func=get_remote_address)
 
 
-def get_rate_limit(request: Request) -> str:
-    """
-    Dynamic SlowAPI limit string keyed on user plan.
-    main.py middleware decodes the JWT and sets request.state.user_plan
-    before this is called, so no DB round-trip is needed here.
-    """
-    plan = getattr(request.state, "user_plan", "free")
+def set_rate_limit_plan(plan: str) -> None:
+    _current_plan.set(plan)
+
+
+def get_rate_limit() -> str:
+    plan = _current_plan.get()
     if plan in ("pro", "enterprise"):
         return settings.rate_limit_pro
     return settings.rate_limit_free

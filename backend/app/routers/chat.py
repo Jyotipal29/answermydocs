@@ -119,6 +119,7 @@ async def _stream_from_graph(
 
     token_buffer: list[str] = []
     final_sources: list[dict] = []
+    final_generation: str = ""
     retrieval_attempts = 1
     is_fallback = False
     t_start = time.time()
@@ -138,6 +139,7 @@ async def _stream_from_graph(
             elif kind == "on_chain_end" and event["name"] == "LangGraph":
                 output = event["data"].get("output", {})
                 final_sources = output.get("sources", [])
+                final_generation = output.get("generation", "")
                 retrieval_attempts = output.get("retry_count", 0) + 1
                 is_fallback = not output.get("documents")
 
@@ -151,6 +153,12 @@ async def _stream_from_graph(
         yield "data: [DONE]\n\n"
         metrics.record_request(latency_ms=elapsed_ms, error=True)
         return
+
+    # If the graph took the fallback path (no LLM, so no on_chat_model_stream events),
+    # the generation text lives only in the final state output — stream it now.
+    if not token_buffer and final_generation:
+        yield f"data: {json.dumps({'type': 'token', 'content': final_generation})}\n\n"
+        token_buffer.append(final_generation)
 
     # Output validation — runs before DB write so we never persist blocked content
     full_response = "".join(token_buffer)

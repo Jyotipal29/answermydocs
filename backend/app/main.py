@@ -11,7 +11,7 @@ from app.auth import get_current_user
 from app.cache import ResponseCache
 from app.config import get_settings
 from app.db import close_supabase, init_supabase
-from app.limits import limiter
+from app.limits import limiter, set_rate_limit_plan
 from app.models import UserPlan, UserResponse
 from app.monitoring import MetricsCollector, get_logger
 from app.rag.agent import init_agent
@@ -99,6 +99,7 @@ async def set_user_plan_middleware(request: Request, call_next):
         except JWTError:
             pass
     request.state.user_plan = plan
+    set_rate_limit_plan(plan)
     return await call_next(request)
 
 

@@ -21,9 +21,7 @@ async def init_supabase() -> None:
 
 async def close_supabase() -> None:
     global _supabase
-    if _supabase is not None:
-        await _supabase.aclose()
-        _supabase = None
+    _supabase = None
 
 
 def get_supabase_client() -> AsyncClient:
