@@ -43,7 +43,7 @@ export default function SettingsPage() {
     : 0
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="dark flex h-screen overflow-hidden bg-background text-foreground">
       <Sidebar />
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-2xl mx-auto px-6 py-8 flex flex-col gap-6">
