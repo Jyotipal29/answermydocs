@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useAuthStore } from '@/store/useAuthStore'
 import { Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -28,6 +29,7 @@ const PRO_FEATURES = [
 
 export function Pricing() {
   const [isAnnual, setIsAnnual] = useState(false)
+  const { user } = useAuthStore()
 
   return (
     <section id="pricing" className="py-24 px-6">
@@ -86,7 +88,7 @@ export function Pricing() {
                   ))}
                 </ul>
                 <Button variant="outline" asChild className="w-full mt-2">
-                  <Link href="/signup">Get Started Free</Link>
+                  <Link href={user ? '/upload' : '/signup'}>Get Started Free</Link>
                 </Button>
               </CardContent>
             </Card>
@@ -124,7 +126,7 @@ export function Pricing() {
                     ))}
                   </ul>
                   <Button asChild className="w-full mt-2">
-                    <Link href="/signup?plan=pro">Start Pro Free Trial</Link>
+                    <Link href={user ? '/upload' : '/signup?plan=pro'}>Start Pro Free Trial</Link>
                   </Button>
                   <p className="text-xs text-center text-muted-foreground">
                     14-day free trial · No credit card required

@@ -1,9 +1,13 @@
+'use client'
+
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { FadeUp } from './shared/FadeUp'
+import { useAuthStore } from '@/store/useAuthStore'
 
 export function FinalCTA() {
+  const { user } = useAuthStore()
   return (
     <section id="cta" className="py-32 px-6">
       <div className="max-w-3xl mx-auto text-center">
@@ -17,7 +21,7 @@ export function FinalCTA() {
             Upload a document and start chatting in seconds. No credit card required.
           </p>
           <Button size="lg" asChild className="h-12 px-8 text-base gap-2">
-            <Link href="/signup">
+            <Link href={user ? '/upload' : '/signup'}>
               Upload PDF Free
               <ArrowRight className="w-4 h-4" />
             </Link>

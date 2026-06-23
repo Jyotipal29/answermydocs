@@ -1,9 +1,13 @@
+'use client'
+
 import Link from 'next/link'
 import { ArrowRight, Play } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { useAuthStore } from '@/store/useAuthStore'
 
 export function Hero() {
+  const { user } = useAuthStore()
   return (
     <section
       id="hero"
@@ -36,7 +40,7 @@ export function Hero() {
 
         <div className="flex flex-col sm:flex-row items-center gap-3 mt-2">
           <Button size="lg" asChild className="h-12 px-6 text-base gap-2">
-            <Link href="/signup">
+            <Link href={user ? '/upload' : '/signup'}>
               Upload PDF Free
               <ArrowRight className="w-4 h-4" />
             </Link>
