@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     # LangSmith
     langchain_api_key: str = ""
     langchain_tracing_v2: bool = True
-    langchain_project: str = "answermydocs-production"
+    langchain_project: str = "answermydocs"
 
     # JWT auth
     jwt_secret_key: str

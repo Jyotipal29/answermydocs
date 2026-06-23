@@ -38,6 +38,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     import os
     os.environ.setdefault("OPENAI_API_KEY", settings.openai_api_key)
+    os.environ.setdefault("LANGCHAIN_API_KEY", settings.langchain_api_key)
+    os.environ.setdefault("LANGCHAIN_TRACING_V2", str(settings.langchain_tracing_v2).lower())
+    os.environ.setdefault("LANGCHAIN_PROJECT", settings.langchain_project)
 
     await init_supabase()
     embeddings = OpenAIEmbeddings(model=settings.embedding_model, api_key=settings.openai_api_key)
