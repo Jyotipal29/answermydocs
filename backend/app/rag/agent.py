@@ -7,7 +7,7 @@ from langsmith import traceable
 from langgraph.graph import END, StateGraph
 
 from app.config import get_settings
-from app.rag.grader import grade_documents
+from app.rag.grader import rerank_documents
 from app.rag.retriever import HybridRetriever
 from app.rag.rewriter import rewrite_query
 
@@ -137,6 +137,7 @@ async def generate_answer(state: RAGState) -> dict:
     query = state["query"]
     documents = state["documents"]
     context = _format_context(documents)
+    sources = _extract_sources(documents)
 
     # streaming=True on the LLM means graph.astream_events() emits
     # on_chat_model_stream events for each token — consumed by the chat router.
@@ -146,7 +147,7 @@ async def generate_answer(state: RAGState) -> dict:
 
     return {
         "generation": full_response,
-        "sources": _extract_sources(documents),
+        "sources": sources,
     }
 
 
@@ -175,7 +176,7 @@ def should_retry_or_generate(
     max_retries: int = state.get("max_retries", settings.max_retries)
     documents: list = state.get("documents", [])
 
-    if relevance_score >= 0.5 and documents:
+    if relevance_score >= 0.3 and documents:
         return "generate"
 
     if retry_count < max_retries:
@@ -197,15 +198,15 @@ def _build_graph():
     workflow = StateGraph(RAGState)
 
     workflow.add_node("retrieve", _retrieve)
-    workflow.add_node("grade", grade_documents)
+    workflow.add_node("rerank", rerank_documents)
     workflow.add_node("rewrite", rewrite_query)
     workflow.add_node("generate", generate_answer)
     workflow.add_node("fallback", generate_fallback)
 
     workflow.set_entry_point("retrieve")
-    workflow.add_edge("retrieve", "grade")
+    workflow.add_edge("retrieve", "rerank")
     workflow.add_conditional_edges(
-        "grade",
+        "rerank",
         should_retry_or_generate,
         {
             "rewrite": "rewrite",

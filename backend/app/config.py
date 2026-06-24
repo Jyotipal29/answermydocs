@@ -44,7 +44,8 @@ class Settings(BaseSettings):
 
     # RAG
     max_retries: int = 2
-    retrieval_k: int = 6
+    retrieval_k: int = 20   # candidates retrieved + RRF-fused before reranking
+    rerank_top_k: int = 8   # docs kept after reranking, passed to the LLM
 
     # Rate limits (SlowAPI format)
     rate_limit_free: str = "20/minute"

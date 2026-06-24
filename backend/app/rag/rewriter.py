@@ -40,7 +40,7 @@ async def rewrite_query(state: dict) -> dict:
     LangGraph node: rewrite the query to improve retrieval on the next attempt.
     Increments retry_count. The graph routes back to retrieve after this node.
     """
-    query: str = state["query"]
+    query: str = state.get("rewritten_query") or state["query"]
     retry_count: int = state.get("retry_count", 0)
 
     result = await _get_chain().ainvoke({"query": query})
