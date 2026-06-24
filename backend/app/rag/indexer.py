@@ -62,33 +62,83 @@ def _extract_pages(content: bytes, filename: str) -> list[Document]:
     return pages
 
 
+def _clean_page_text(text: str) -> str:
+    """Strip common PDF noise: standalone page numbers and short header/footer lines."""
+    lines = text.split("\n")
+    cleaned = []
+    for line in lines:
+        stripped = line.strip()
+        # Standalone page numbers: "1", "- 2 -", "Page 3 of 10"
+        if re.match(r"^[-–—]?\s*\d+\s*[-–—]?$", stripped):
+            continue
+        if re.match(r"^[Pp]age\s+\d+(\s+of\s+\d+)?$", stripped):
+            continue
+        cleaned.append(line)
+    return "\n".join(cleaned)
+
+
 def _chunk_documents(
     pages: list[Document],
-    embeddings: OpenAIEmbeddings,
     doc_id: str,
     user_id: str,
     filename: str,
 ) -> list[Document]:
-    try:
-        from langchain_experimental.text_splitter import SemanticChunker
+    """
+    Chunk strategy:
+    1. Clean each page (strip page-number noise).
+    2. Merge all pages into one text with [PAGE N] boundary markers so the
+       splitter can cross page boundaries — avoids stranding content at edges.
+    3. Split with RecursiveCharacterTextSplitter using tiktoken so chunk_size
+       and chunk_overlap are in tokens, not characters.
+    4. Recover page_number for each chunk from the nearest [PAGE N] marker
+       inside the chunk text, then strip the markers before storing.
+    """
+    # Step 1 + 2 — clean and merge
+    parts = []
+    for page in pages:
+        cleaned = _clean_page_text(page.page_content)
+        page_num = page.metadata.get("page_number", 1)
+        parts.append(f"[PAGE {page_num}]\n{cleaned}")
+    merged = "\n\n".join(parts)
 
-        splitter = SemanticChunker(
-            embeddings,
-            breakpoint_threshold_type="percentile",
-            breakpoint_threshold_amount=90,
+    # Step 3 — split (token-aware via tiktoken cl100k_base = GPT-4 tokeniser)
+    try:
+        splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
+            encoding_name="cl100k_base",
+            chunk_size=1000,
+            chunk_overlap=200,
+            separators=["\n\n", "\n", " ", ""],
         )
     except Exception:
-        splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=100)
+        # Fallback if tiktoken is unavailable (chars ≈ tokens × 4)
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=4000,
+            chunk_overlap=800,
+            separators=["\n\n", "\n", " ", ""],
+        )
+    raw_chunks = splitter.create_documents([merged])
 
-    chunks = splitter.split_documents(pages)
-    for i, chunk in enumerate(chunks):
-        chunk.metadata.update(
-            {
-                "doc_id": doc_id,
-                "user_id": user_id,
-                "chunk_index": i,
-                "filename": filename,
-            }
+    # Step 4 — recover page numbers, strip markers, build final Documents
+    chunks: list[Document] = []
+    for i, raw in enumerate(raw_chunks):
+        text = raw.page_content
+        # Last [PAGE N] marker in the chunk → page this content belongs to
+        page_matches = list(re.finditer(r"\[PAGE (\d+)\]", text))
+        page_number = int(page_matches[-1].group(1)) if page_matches else 1
+        clean_text = re.sub(r"\[PAGE \d+\]\n?", "", text).strip()
+        if not clean_text:
+            continue
+        chunks.append(
+            Document(
+                page_content=clean_text,
+                metadata={
+                    "doc_id": doc_id,
+                    "user_id": user_id,
+                    "chunk_index": i,
+                    "filename": filename,
+                    "page_number": page_number,
+                },
+            )
         )
     return chunks
 
@@ -196,10 +246,10 @@ class PDFIndexer:
             page_count = len(pages)
             await self._set_doc_status(doc_id, "processing", page_count=page_count)
 
-            # Step 4 — chunk (may embed internally for semantic splitting)
+            # Step 4 — chunk (page-aware merge + recursive split)
             await self._push(doc_id, "processing", f"Chunking {page_count} pages…")
             chunks = await asyncio.to_thread(
-                _chunk_documents, pages, self.embeddings, doc_id, user_id, safe_name
+                _chunk_documents, pages, doc_id, user_id, safe_name
             )
             chunk_count = len(chunks)
 

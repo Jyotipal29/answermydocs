@@ -15,7 +15,7 @@ settings = get_settings()
 # BM25 corpus cache  (keyed by frozenset of doc_ids)
 # ---------------------------------------------------------------------------
 
-_bm25_cache: dict[frozenset, tuple[list[list[str]], list[Document]]] = {}
+_bm25_cache: dict[tuple, tuple[list[list[str]], list[Document]]] = {}
 
 
 def _tokenise(text: str) -> list[str]:
@@ -73,7 +73,7 @@ class _BM25:
 async def _build_bm25_corpus(
     user_id: str, doc_ids: list[str]
 ) -> tuple[list[list[str]], list[Document]]:
-    cache_key = frozenset(doc_ids)
+    cache_key = (user_id, frozenset(doc_ids))
     if cache_key in _bm25_cache:
         return _bm25_cache[cache_key]
 
@@ -208,6 +208,6 @@ class HybridRetriever:
 
     def invalidate_bm25_cache(self, doc_id: str) -> None:
         """Evict every cached corpus that references doc_id. Call on document delete."""
-        stale = [key for key in _bm25_cache if doc_id in key]
+        stale = [key for key in _bm25_cache if doc_id in key[1]]
         for key in stale:
             del _bm25_cache[key]
