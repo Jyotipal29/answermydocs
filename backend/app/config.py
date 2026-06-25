@@ -36,7 +36,13 @@ class Settings(BaseSettings):
     # App
     app_env: str = "development"
     log_level: str = "INFO"
-    frontend_url: str = "http://localhost:3000"
+    # Comma-separated allowed CORS origins.
+    # On Render set: CORS_ORIGINS=https://answermydocs.vercel.app,http://localhost:3000
+    cors_origins: str = "http://localhost:3000"
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
     # Cache
     cache_ttl_seconds: int = 300
