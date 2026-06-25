@@ -129,6 +129,10 @@ export default function ChatPage({ params, searchParams }: Props) {
         <ResizablePanel defaultSize={50} minSize={20}>
           {pdfUrl ? (
             <PDFViewer url={pdfUrl} targetPage={jumpPage} />
+          ) : convLoading ? (
+            <div className="flex items-center justify-center h-full">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
           ) : (
             <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
               Select a document to preview it here
