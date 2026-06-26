@@ -3,10 +3,11 @@
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { Upload, FileText } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { DocumentCard } from '@/components/documents/DocumentCard'
-import { documentsApi } from '@/lib/api'
+import { documentsApi, extractApiError } from '@/lib/api'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
@@ -19,7 +20,7 @@ export default function DashboardPage() {
     if (!isLoading && !user) router.push('/login')
   }, [user, isLoading])
 
-  const { data: documents, isLoading: docsLoading } = useQuery({
+  const { data: documents, isLoading: docsLoading, isError, error } = useQuery({
     queryKey: ['documents'],
     queryFn: () => documentsApi.list().then((r) => r.data),
     enabled: !!user,
@@ -29,6 +30,10 @@ export default function DashboardPage() {
       return hasProcessing ? 3000 : false
     },
   })
+
+  useEffect(() => {
+    if (isError) toast.error(extractApiError(error))
+  }, [isError, error])
 
   if (isLoading) return null
 

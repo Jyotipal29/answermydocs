@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { UploadZone } from '@/components/documents/UploadZone'
-import { documentsApi, subscribeToDocumentStatus } from '@/lib/api'
+import { documentsApi, subscribeToDocumentStatus, extractApiError } from '@/lib/api'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useQueryClient } from '@tanstack/react-query'
 
@@ -71,8 +71,7 @@ export default function UploadPage() {
         },
       )
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-      setError(msg ?? 'Upload failed')
+      setError(extractApiError(e))
       setStage('failed')
     }
   }

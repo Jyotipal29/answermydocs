@@ -3,6 +3,16 @@ import { getToken } from '@/lib/auth'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
+export function extractApiError(e: unknown): string {
+  if (e && typeof e === 'object') {
+    const detail = (e as { response?: { data?: { detail?: unknown } } }).response?.data?.detail
+    if (typeof detail === 'string' && detail.length > 0) return detail
+    const msg = (e as { message?: unknown }).message
+    if (typeof msg === 'string' && msg.length > 0) return msg
+  }
+  return 'Something went wrong'
+}
+
 export const api = axios.create({ baseURL: BASE_URL })
 
 api.interceptors.request.use((config) => {

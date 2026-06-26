@@ -1,13 +1,13 @@
 'use client'
 
-import { useState } from 'react'
 import Link from 'next/link'
 import { FileText, Trash2, MessageSquare, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { toast } from 'sonner'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import { Document, DocumentStatus, documentsApi } from '@/lib/api'
-import { useQueryClient } from '@tanstack/react-query'
+import { Document, DocumentStatus, documentsApi, extractApiError } from '@/lib/api'
 
 const statusConfig: Record<DocumentStatus, { label: string; icon: React.ReactNode; variant: 'secondary' | 'destructive' | 'default' | 'outline' }> = {
   uploading:  { label: 'Uploading',  icon: <Loader2 className="w-3 h-3 animate-spin" />, variant: 'secondary' },
@@ -23,19 +23,18 @@ function formatBytes(bytes: number) {
 }
 
 export function DocumentCard({ doc }: { doc: Document }) {
-  const [deleting, setDeleting] = useState(false)
   const qc = useQueryClient()
   const status = statusConfig[doc.status]
 
-  async function handleDelete() {
+  const { mutate: deleteDoc, isPending: deleting } = useMutation({
+    mutationFn: () => documentsApi.delete(doc.id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['documents'] }),
+    onError: (e) => toast.error(extractApiError(e)),
+  })
+
+  function handleDelete() {
     if (!confirm(`Delete "${doc.filename}"?`)) return
-    setDeleting(true)
-    try {
-      await documentsApi.delete(doc.id)
-      qc.invalidateQueries({ queryKey: ['documents'] })
-    } finally {
-      setDeleting(false)
-    }
+    deleteDoc()
   }
 
   return (
