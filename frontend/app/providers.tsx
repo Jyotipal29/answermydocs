@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { GoogleOAuthProvider } from '@react-oauth/google'
+import { Toaster } from 'sonner'
 import { authApi } from '@/lib/api'
 import { getToken } from '@/lib/auth'
 import { useAuthStore } from '@/store/useAuthStore'
@@ -36,6 +37,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <QueryClientProvider client={queryClient}>
         <AuthBootstrap>{children}</AuthBootstrap>
+        <Toaster theme="dark" position="top-right" richColors />
       </QueryClientProvider>
     </GoogleOAuthProvider>
   )

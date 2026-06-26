@@ -7,11 +7,13 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { GoogleLogin } from '@react-oauth/google'
+import { Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { authApi } from '@/lib/api'
+import { authApi, extractApiError } from '@/lib/api'
 import { setToken } from '@/lib/auth'
 import { useAuthStore } from '@/store/useAuthStore'
 
@@ -27,14 +29,13 @@ type FormData = z.infer<typeof schema>
 export default function SignupPage() {
   const router = useRouter()
   const { login } = useAuthStore()
-  const [serverError, setServerError] = useState('')
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false)
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
     resolver: zodResolver(schema),
   })
 
   async function onSubmit(data: FormData) {
-    setServerError('')
     try {
       const res = await authApi.signup(data.email, data.password)
       setToken(res.data.access_token)
@@ -42,22 +43,23 @@ export default function SignupPage() {
       login(res.data.access_token, meRes.data)
       router.push('/dashboard')
     } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-      setServerError(msg ?? 'Sign up failed')
+      toast.error(extractApiError(e))
     }
   }
 
   async function onGoogleSuccess(credentialResponse: { credential?: string }) {
     if (!credentialResponse.credential) return
-    setServerError('')
+    setIsGoogleLoading(true)
     try {
       const res = await authApi.googleAuth(credentialResponse.credential)
       setToken(res.data.access_token)
       const meRes = await authApi.getMe()
       login(res.data.access_token, meRes.data)
       router.push('/dashboard')
-    } catch {
-      setServerError('Google sign-in failed')
+    } catch (e: unknown) {
+      toast.error(extractApiError(e))
+    } finally {
+      setIsGoogleLoading(false)
     }
   }
 
@@ -80,8 +82,8 @@ export default function SignupPage() {
               <Input id="password" type="password" placeholder="8+ characters" {...register('password')} />
               {errors.password && <p className="text-destructive text-xs">{errors.password.message}</p>}
             </div>
-            {serverError && <p className="text-destructive text-sm">{serverError}</p>}
             <Button type="submit" className="w-full mt-1" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
               {isSubmitting ? 'Creating account…' : 'Create account'}
             </Button>
           </form>
@@ -92,8 +94,15 @@ export default function SignupPage() {
             <div className="flex-1 border-t border-border" />
           </div>
 
-          <div className="flex justify-center">
-            <GoogleLogin onSuccess={onGoogleSuccess} onError={() => setServerError('Google sign-in failed')} />
+          <div className="flex justify-center min-h-[40px] items-center">
+            {isGoogleLoading ? (
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+            ) : (
+              <GoogleLogin
+                onSuccess={onGoogleSuccess}
+                onError={() => toast.error('Google sign-in failed')}
+              />
+            )}
           </div>
 
           <p className="text-center text-sm text-muted-foreground">
