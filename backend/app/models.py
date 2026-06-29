@@ -146,6 +146,10 @@ class ConversationCreate(BaseModel):
     workspace_id: Optional[UUID] = None
 
 
+class ConversationUpdate(BaseModel):
+    title: str = Field(max_length=200)
+
+
 class MessageResponse(BaseModel):
     id: UUID
     conversation_id: UUID

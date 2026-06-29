@@ -1,20 +1,147 @@
 'use client'
 
+import { useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { FileText, Upload, MessageSquare, Settings, LogOut, LayoutDashboard } from 'lucide-react'
+import { FileText, Upload, MessageSquare, Settings, LogOut, LayoutDashboard, Trash2, Pencil, Loader2, Check, X } from 'lucide-react'
+import { toast } from 'sonner'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import { useAuthStore } from '@/store/useAuthStore'
-import { useQuery } from '@tanstack/react-query'
-import { authApi, conversationsApi } from '@/lib/api'
+import { authApi, conversationsApi, Conversation, extractApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 const navItems = [
   { href: '/dashboard', label: 'Documents', icon: LayoutDashboard },
   { href: '/upload', label: 'Upload', icon: Upload },
 ]
+
+function ConversationItem({
+  conversation: c,
+  isActive,
+  onDeleted,
+  onRenamed,
+}: {
+  conversation: Conversation
+  isActive: boolean
+  onDeleted: () => void
+  onRenamed: () => void
+}) {
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [title, setTitle] = useState(c.title || '')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const { mutate: deleteConv, isPending: deleting } = useMutation({
+    mutationFn: () => conversationsApi.delete(c.id),
+    onSuccess: () => { setConfirmOpen(false); onDeleted() },
+    onError: (e) => { setConfirmOpen(false); toast.error(extractApiError(e)) },
+  })
+
+  const { mutate: renameConv, isPending: renaming } = useMutation({
+    mutationFn: () => conversationsApi.rename(c.id, title),
+    onSuccess: () => { setEditing(false); onRenamed() },
+    onError: (e) => { toast.error(extractApiError(e)) },
+  })
+
+  function startEditing() {
+    setTitle(c.title || '')
+    setEditing(true)
+    setTimeout(() => inputRef.current?.select(), 0)
+  }
+
+  function commitRename() {
+    const trimmed = title.trim()
+    if (!trimmed || trimmed === c.title) { setEditing(false); return }
+    renameConv()
+  }
+
+  return (
+    <>
+      <div
+        className={cn(
+          'group relative flex items-center rounded-md px-2 h-8 text-xs font-normal hover:bg-accent',
+          isActive && 'bg-accent'
+        )}
+      >
+        {editing ? (
+          <div className="flex items-center gap-1 flex-1 min-w-0">
+            <MessageSquare className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+            <input
+              ref={inputRef}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitRename()
+                if (e.key === 'Escape') setEditing(false)
+              }}
+              className="flex-1 min-w-0 bg-transparent outline-none text-xs"
+              autoFocus
+            />
+            <button onClick={commitRename} disabled={renaming} className="shrink-0 text-primary hover:opacity-80">
+              {renaming ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+            </button>
+            <button onClick={() => setEditing(false)} className="shrink-0 text-muted-foreground hover:opacity-80">
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        ) : (
+          <>
+            <Link href={`/chat/${c.id}`} className="flex items-center gap-2 flex-1 min-w-0 h-full">
+              <MessageSquare className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+              <span className="truncate">{c.title || 'Untitled'}</span>
+            </Link>
+            <div className="hidden group-hover:flex items-center gap-0.5 shrink-0 ml-1">
+              <button
+                onClick={startEditing}
+                className="p-0.5 rounded text-muted-foreground hover:text-foreground"
+                title="Rename"
+              >
+                <Pencil className="w-3 h-3" />
+              </button>
+              <button
+                onClick={() => setConfirmOpen(true)}
+                className="p-0.5 rounded text-muted-foreground hover:text-destructive"
+                title="Delete"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent showCloseButton={false} className="sm:max-w-[400px] bg-background text-foreground">
+          <DialogHeader>
+            <DialogTitle>Delete chat?</DialogTitle>
+            <DialogDescription>
+              <span className="font-medium text-foreground">&ldquo;{c.title || 'Untitled'}&rdquo;</span> and all its
+              messages will be permanently deleted. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setConfirmOpen(false)} disabled={deleting}>Cancel</Button>
+            <Button variant="default" onClick={() => deleteConv()} disabled={deleting}>
+              {deleting && <Loader2 className="w-4 h-4 animate-spin" />}
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
 
 interface SidebarProps {
   isOpen?: boolean
@@ -31,6 +158,8 @@ export function Sidebar({ isOpen = true }: SidebarProps) {
     queryFn: () => authApi.getUsage().then((r) => r.data),
     enabled: !!user,
   })
+
+  const qc = useQueryClient()
 
   const { data: conversations } = useQuery({
     queryKey: ['conversations'],
@@ -89,18 +218,17 @@ export function Sidebar({ isOpen = true }: SidebarProps) {
               </p>
             </div>
             <div className="flex flex-col gap-0.5 px-2 overflow-y-auto flex-1">
-              {conversations.slice(0, 10).map((c) => (
-                <Button
+              {conversations.slice(0, 20).map((c) => (
+                <ConversationItem
                   key={c.id}
-                  variant={pathname === `/chat/${c.id}` ? 'secondary' : 'ghost'}
-                  className="w-full justify-start gap-2 h-8 text-xs font-normal"
-                  asChild
-                >
-                  <Link href={`/chat/${c.id}`}>
-                    <MessageSquare className="w-3.5 h-3.5 shrink-0" />
-                    <span className="truncate">{c.title || 'Untitled'}</span>
-                  </Link>
-                </Button>
+                  conversation={c}
+                  isActive={pathname === `/chat/${c.id}`}
+                  onDeleted={() => {
+                    qc.invalidateQueries({ queryKey: ['conversations'] })
+                    if (pathname === `/chat/${c.id}`) router.replace('/dashboard')
+                  }}
+                  onRenamed={() => qc.invalidateQueries({ queryKey: ['conversations'] })}
+                />
               ))}
             </div>
           </>

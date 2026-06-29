@@ -1,3 +1,4 @@
+import asyncio
 import json
 import uuid
 
@@ -12,6 +13,7 @@ from fastapi import (
     status,
 )
 from fastapi.responses import RedirectResponse, StreamingResponse
+from storage3.exceptions import StorageApiError
 
 from app.auth import get_current_user
 from app.config import get_settings
@@ -164,9 +166,23 @@ async def get_document_file(
     if not doc.get("storage_path"):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not yet stored")
 
-    signed = await client.storage.from_("documents").create_signed_url(
-        doc["storage_path"], expires_in=300
-    )
+    # Supabase Storage can return 500 on cold starts (free-tier sleep).
+    # Retry once after a brief wait before surfacing the error to the client.
+    for attempt in range(2):
+        try:
+            signed = await client.storage.from_("documents").create_signed_url(
+                doc["storage_path"], expires_in=300
+            )
+            break
+        except StorageApiError:
+            if attempt == 0:
+                await asyncio.sleep(1)
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="File storage is temporarily unavailable. Please try again in a moment.",
+                )
+
     url = signed.get("signedURL") or signed.get("signedUrl")
     if not url:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not generate file URL")

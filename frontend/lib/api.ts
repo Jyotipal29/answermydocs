@@ -152,6 +152,7 @@ export const conversationsApi = {
   list: () => api.get<Conversation[]>('/conversations'),
   get: (id: string) => api.get<ConversationDetail>(`/conversations/${id}`),
   delete: (id: string) => api.delete(`/conversations/${id}`),
+  rename: (id: string, title: string) => api.patch<Conversation>(`/conversations/${id}`, { title }),
 }
 
 // ── Chat SSE ─────────────────────────────────────────────────────────────────

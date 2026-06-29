@@ -11,6 +11,7 @@ interface Props {
   conversationId?: string
   initialMessages?: Message[]
   onConversationId?: (id: string) => void
+  onStreamComplete?: (resolvedConvId?: string) => void
   onJumpToPage?: (page: number) => void
 }
 
@@ -26,6 +27,7 @@ export function ChatPanel({
   conversationId: initialConvId,
   initialMessages = [],
   onConversationId,
+  onStreamComplete,
   onJumpToPage,
 }: Props) {
   const [messages, setMessages] = useState<(Message | StreamingMessage)[]>(initialMessages)
@@ -34,15 +36,13 @@ export function ChatPanel({
   const [streaming, setStreaming] = useState(false)
   const [error, setError] = useState('')
 
-  // Hydrate messages from the prop when React Query resolves after the first render.
-  // useState only captures the initial value once, so we need this effect to sync
-  // when `initialMessages` changes from [] to the loaded conversation history.
+  // Hydrate messages from DB when React Query resolves after the first render.
+  // Use functional update so we never overwrite messages that were added during streaming.
   useEffect(() => {
-    if (initialMessages.length > 0 && !streaming) {
-      setMessages(initialMessages)
-    }
+    setMessages((prev) => (prev.length === 0 && initialMessages.length > 0 ? initialMessages : prev))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialMessages])
+
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -63,8 +63,13 @@ export function ChatPanel({
     setMessages((prev) => [...prev, userMsg, assistantMsg])
     setStreaming(true)
 
+    // Capture the resolved conversation ID in a local var so onStreamComplete
+    // gets the correct value even though the parent closure captures a stale convId.
+    let resolvedConvId: string | undefined = convId
+
     await sendChatMessage(text, documentIds, {
       onConversationId: (id) => {
+        resolvedConvId = id
         setConvId(id)
         onConversationId?.(id)
       },
@@ -91,6 +96,8 @@ export function ChatPanel({
         setMessages((prev) => prev.slice(0, -1))
       },
     }, convId)
+
+    onStreamComplete?.(resolvedConvId)
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {

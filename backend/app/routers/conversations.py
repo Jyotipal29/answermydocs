@@ -6,6 +6,7 @@ from app.models import (
     ConversationCreate,
     ConversationDetailResponse,
     ConversationResponse,
+    ConversationUpdate,
     MessageResponse,
     MessageRole,
     Source,
@@ -111,6 +112,28 @@ async def get_conversation(
         updated_at=conv["updated_at"],
         messages=messages,
     )
+
+
+# ---------------------------------------------------------------------------
+# Rename
+# ---------------------------------------------------------------------------
+
+
+@router.patch("/{conv_id}", response_model=ConversationResponse)
+async def rename_conversation(
+    conv_id: str,
+    body: ConversationUpdate,
+    current_user: UserResponse = Depends(get_current_user),
+):
+    await _get_owned_conversation(conv_id, str(current_user.id))
+    client = get_supabase_client()
+    result = (
+        await client.table("conversations")
+        .update({"title": body.title.strip()})
+        .eq("id", conv_id)
+        .execute()
+    )
+    return _to_response(result.data[0])
 
 
 # ---------------------------------------------------------------------------

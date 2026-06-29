@@ -76,14 +76,18 @@ async def verify_google_token(id_token_str: str) -> dict:
     Verify a Google ID token issued by @react-oauth/google on the frontend.
     Returns the decoded token claims (sub, email, name, picture).
     """
-    try:
+    import asyncio
+
+    def _verify() -> dict:
         request = google_requests.Request()
-        claims = google_id_token.verify_oauth2_token(
+        return google_id_token.verify_oauth2_token(
             id_token_str,
             request,
             settings.google_client_id,
         )
-        return claims
+
+    try:
+        return await asyncio.to_thread(_verify)
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
