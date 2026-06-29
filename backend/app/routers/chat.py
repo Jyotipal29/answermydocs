@@ -253,6 +253,19 @@ async def chat(
         async def _cached_gen():
             yield f"data: {json.dumps({'type': 'conversation_id', 'conversation_id': conversation_id})}\n\n"
             yield f"data: {json.dumps({'type': 'token', 'content': cached_response})}\n\n"
+            # Persist assistant message (same as live path) so conversation history
+            # is complete when the frontend re-fetches the conversation from DB.
+            await client.table("messages").insert(
+                {
+                    "conversation_id": conversation_id,
+                    "role": MessageRole.assistant.value,
+                    "content": cached_response,
+                    "sources": cached_sources,
+                }
+            ).execute()
+            await client.table("conversations").update(
+                {"updated_at": datetime.now(timezone.utc).isoformat()}
+            ).eq("id", conversation_id).execute()
             yield f"data: {json.dumps({'type': 'sources', 'sources': cached_sources})}\n\n"
             yield "data: [DONE]\n\n"
             request.app.state.metrics.record_request(latency_ms=0, cache_hit=True)

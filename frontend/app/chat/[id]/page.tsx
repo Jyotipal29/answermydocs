@@ -2,17 +2,25 @@
 
 import { use, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { useQuery } from '@tanstack/react-query'
 import { Loader2, PanelLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { ChatPanel } from '@/components/chat/ChatPanel'
-import { PDFViewer } from '@/components/chat/PDFViewer'
+
+// pdf.js uses DOMMatrix at module-evaluation time, which doesn't exist in Node.js.
+// Dynamic import with ssr:false ensures it only runs in the browser.
+const PDFViewer = dynamic(
+  () => import('@/components/chat/PDFViewer').then((m) => m.PDFViewer),
+  { ssr: false },
+)
 import {
   ResizablePanelGroup,
   ResizablePanel,
   ResizableHandle,
 } from '@/components/ui/resizable'
+import { toast } from 'sonner'
 import { conversationsApi, documentsApi } from '@/lib/api'
 import { useAuthStore } from '@/store/useAuthStore'
 
@@ -35,11 +43,19 @@ export default function ChatPage({ params, searchParams }: Props) {
     if (!authLoading && !user) router.push('/login')
   }, [user, authLoading])
 
-  const { data: conversation, isLoading: convLoading } = useQuery({
+  const { data: conversation, isLoading: convLoading, isError: convError } = useQuery({
     queryKey: ['conversation', convId],
     queryFn: () => conversationsApi.get(convId!).then((r) => r.data),
     enabled: !!convId && convId !== 'new',
+    retry: false,
   })
+
+  useEffect(() => {
+    if (convError) {
+      toast.error("This conversation's document was deleted.")
+      router.replace('/dashboard')
+    }
+  }, [convError, router])
 
   const initialMessages = useMemo(() => conversation?.messages ?? [], [conversation])
 
@@ -73,7 +89,6 @@ export default function ChatPage({ params, searchParams }: Props) {
     <div className="dark flex h-screen overflow-hidden bg-background text-foreground">
       <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen((v) => !v)} />
 
-      {/* Wrapper gives ResizablePanelGroup a correct bounded width to resolve w-full against */}
       <div className="flex-1 flex overflow-hidden">
       <ResizablePanelGroup orientation="horizontal">
         {/* Chat panel */}
@@ -99,7 +114,10 @@ export default function ChatPage({ params, searchParams }: Props) {
             </div>
 
             <div className="flex-1 min-h-0">
-              {convId && convLoading ? (
+              {/* Only show the "Loading conversation…" spinner when navigating to an
+                  EXISTING conversation (id !== 'new'). When id === 'new' the user may
+                  be mid-stream — unmounting ChatPanel here loses all streamed tokens. */}
+              {convId && convLoading && id !== 'new' ? (
                 <div className="h-full flex items-center justify-center">
                   <div className="flex flex-col items-center gap-2">
                     <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
@@ -108,13 +126,24 @@ export default function ChatPage({ params, searchParams }: Props) {
                 </div>
               ) : (
                 <ChatPanel
-                  key={convId ?? 'new'}
+                  key={id}
                   documentIds={docIds}
                   conversationId={convId}
                   initialMessages={initialMessages}
                   onConversationId={(newId) => {
                     setConvId(newId)
-                    if (id === 'new') router.replace(`/chat/${newId}`, { scroll: false })
+                  }}
+                  onStreamComplete={(resolvedConvId) => {
+                    if (id === 'new' && resolvedConvId) {
+                      // Use history.replaceState instead of router.replace so the URL
+                      // updates without triggering a Next.js re-render that would
+                      // flip key={id} and remount ChatPanel, losing streamed messages.
+                      window.history.replaceState(
+                        {},
+                        '',
+                        `/chat/${resolvedConvId}${docIdParam ? `?doc=${docIdParam}` : ''}`,
+                      )
+                    }
                   }}
                   onJumpToPage={setJumpPage}
                 />

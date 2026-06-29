@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -44,7 +45,7 @@ async def signup(request: Request, body: SignupRequest):
         {
             "email": body.email,
             "name": body.name,
-            "password_hash": hash_password(body.password),
+            "password_hash": await asyncio.to_thread(hash_password, body.password),
             "plan": "free",
         }
     ).execute()
@@ -64,7 +65,7 @@ async def login(request: Request, body: LoginRequest):
 
     user = result.data[0]
     password_hash = user.get("password_hash")
-    if not password_hash or not verify_password(body.password, password_hash):
+    if not password_hash or not await asyncio.to_thread(verify_password, body.password, password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
     return TokenResponse(access_token=create_access_token(user["id"], plan=user["plan"]))
